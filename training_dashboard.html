@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>臺北市政府消防局 115年訓練流路儀表板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Microsoft JhengHei', BlinkMacSystemFont, sans-serif;
+    background: #f0f4f8;
+    color: #1a202c;
+    font-size: 14px;
+  }
+  .header {
+    background: linear-gradient(135deg, #c0392b 0%, #922b21 100%);
+    color: white;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    justify-content: space-between;
+  }
+  .header-date {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .header-date .date-label { font-size: 10px; opacity: 0.75; letter-spacing: 0.5px; }
+  .header-date .date-value { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .header-icon { font-size: 24px; }
+  .header-text h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.3px; }
+  .header-text p { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+  .container { padding: 14px 16px; max-width: 1200px; margin: 0 auto; }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  @media (min-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  .kpi-card {
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-left: 4px solid;
+  }
+  .kpi-card.red { border-color: #e53e3e; }
+  .kpi-card.orange { border-color: #dd6b20; }
+  .kpi-card.blue { border-color: #3182ce; }
+  .kpi-card.green { border-color: #38a169; }
+  .kpi-label { font-size: 11px; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 22px; font-weight: 800; margin: 4px 0 2px; line-height: 1; }
+  .kpi-card.red .kpi-value { color: #c53030; }
+  .kpi-card.orange .kpi-value { color: #c05621; }
+  .kpi-card.blue .kpi-value { color: #2b6cb0; }
+  .kpi-card.green .kpi-value { color: #276749; }
+  .kpi-sub { font-size: 11px; color: #a0aec0; }
+
+  /* Charts row */
+  .charts-row { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 16px; }
+  @media (min-width: 700px) {
+    .charts-row { grid-template-columns: 1fr 1fr; }
+  }
+  .chart-card {
+    background: white;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: #c0392b;
+    border-radius: 2px;
+  }
+  .chart-wrapper { position: relative; }
+
+  /* Heatmap */
+  .heatmap-container { overflow-x: auto; }
+  .heatmap-table { border-collapse: separate; border-spacing: 3px; width: 100%; }
+  .heatmap-table th {
+    font-size: 10px;
+    color: #718096;
+    font-weight: 600;
+    text-align: center;
+    padding: 2px 1px;
+    white-space: nowrap;
+  }
+  .heatmap-table .month-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2d3748;
+    text-align: right;
+    padding-right: 8px;
+    white-space: nowrap;
+  }
+  .heatmap-cell {
+    width: 28px;
+    height: 24px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    vertical-align: middle;
+    position: relative;
+  }
+  .heatmap-cell:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 10;
+  }
+  .heatmap-cell.empty { background: #f7fafc; }
+  .heatmap-cell.zero { background: #edf2f7; color: #cbd5e0; }
+  .heatmap-cell.low { background: #fed7d7; color: #9b2335; }
+  .heatmap-cell.mid { background: #fc8181; color: white; }
+  .heatmap-cell.high { background: #e53e3e; color: white; }
+  .heatmap-cell.peak { background: #822727; color: white; }
+  .heatmap-cell.today {
+    outline: 2.5px solid #39ff14;
+    outline-offset: -2px;
+    box-shadow: 0 0 8px 2px #39ff14, inset 0 0 4px rgba(57,255,20,0.2);
+    z-index: 5;
+    position: relative;
+  }
+
+  /* Month tabs */
+  .month-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .month-tab {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a5568;
+    transition: all 0.15s;
+  }
+  .month-tab:hover { background: #fff5f5; border-color: #fc8181; color: #c53030; }
+  .month-tab.active { background: #c0392b; border-color: #c0392b; color: white; }
+
+  /* Training table */
+  .training-table { width: 100%; border-collapse: collapse; }
+  .training-table th {
+    font-size: 11px;
+    color: #718096;
+    font-weight: 700;
+    padding: 8px 10px;
+    border-bottom: 2px solid #e2e8f0;
+    text-align: left;
+    background: #f7fafc;
+  }
+  .training-table td {
+    font-size: 12px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f4f8;
+    color: #2d3748;
+    vertical-align: top;
+  }
+  .training-table tr:hover td { background: #fff5f5; }
+  .training-table tr.active-today td {
+    outline: none;
+  }
+  .training-table tr.active-today {
+    outline: 2.5px solid #39ff14;
+    outline-offset: -1px;
+    box-shadow: 0 0 8px 2px rgba(57,255,20,0.35);
+    position: relative;
+    z-index: 2;
+  }
+  .training-table tr.active-today td:first-child {
+    border-left: 3px solid #39ff14;
+  }
+  .active-today-label {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #39ff14;
+    color: #1a4a00;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-red { background: #fed7d7; color: #c53030; }
+  .badge-orange { background: #feebc8; color: #c05621; }
+  .badge-yellow { background: #fefcbf; color: #744210; }
+  .badge-green { background: #c6f6d5; color: #276749; }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: rgba(26,32,44,0.92);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    pointer-events: none;
+    display: none;
+    z-index: 1000;
+    max-width: 220px;
+    line-height: 1.6;
+  }
+
+  /* Detail panel */
+  .detail-month-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #c0392b;
+    margin-bottom: 12px;
+  }
+  .peak-days-bar {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .peak-day-pill {
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .mini-stats { display: flex; gap: 16px; margin-bottom: 14px; }
+  .mini-stat { text-align: center; }
+  .mini-stat-val { font-size: 20px; font-weight: 800; color: #c0392b; }
+  .mini-stat-lbl { font-size: 10px; color: #718096; }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="header-icon">🚒</div>
+    <div class="header-text">
+      <h1>臺北市政府消防局 115年訓練流路儀表板</h1>
+      <p>外勤分隊人力調用預估 · 全年每日訓練負載視覺化</p>
+    </div>
+  </div>
+  <div class="header-date">
+    <div class="date-label">TODAY</div>
+    <div class="date-value" id="todayDate"></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card red">
+      <div class="kpi-label">全年調用人次</div>
+      <div class="kpi-value">13,046</div>
+      <div class="kpi-sub">全年累積外勤調用人天</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">超過60人天數</div>
+      <div class="kpi-value">61</div>
+      <div class="kpi-sub">每日超過60人之訓練天數</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">最高單日人數</div>
+      <div class="kpi-value">148</div>
+      <div class="kpi-sub">5月28日 · NAP複測</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">最密集月份</div>
+      <div class="kpi-value">5月</div>
+      <div class="kpi-sub">月調用 1,776 人天</div>
+    </div>
+  </div>
+
+  <!-- Monthly Bar + Peak Days -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="card-title">各月份調用人天總計</div>
+      <div class="chart-wrapper" style="height:180px;">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">各月超過60人天數</div>
+      <div class="chart-wrapper" style="height:180px;">
+        <canvas id="peakChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annual Heatmap -->
+  <div class="chart-card" style="margin-bottom:20px;">
+    <div class="card-title">全年每日人力熱力圖</div>
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:11px;color:#718096;">人數強度：</span>
+      <span style="display:flex;gap:6px;align-items:center;font-size:11px;">
+        <span style="width:16px;height:16px;border-radius:3px;background:#edf2f7;display:inline-block;"></span>0
+        <span style="width:16px;height:16px;border-radius:3px;background:#fed7d7;display:inline-block;margin-left:8px;"></span>1–45
+        <span style="width:16px;height:16px;border-radius:3px;background:#fc8181;display:inline-block;margin-left:8px;"></span>46–60
+        <span style="width:16px;height:16px;border-radius:3px;background:#e53e3e;display:inline-block;margin-left:8px;"></span>61–90
+        <span style="width:16px;height:16px;border-radius:3px;background:#822727;display:inline-block;margin-left:8px;"></span>91+
+      </span>
+    </div>
+    <div class="heatmap-container">
+      <table class="heatmap-table" id="heatmapTable"></table>
+    </div>
+  </div>
+
+  <!-- Monthly Detail -->
+  <div class="chart-card">
+    <div class="card-title">月份訓練明細</div>
+    <div class="month-tabs" id="monthTabs"></div>
+    <div id="monthDetail"></div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// TODAY'S DATE
+// ============================================================
+(function() {
+  const now = new Date();
+  const weekdays = ['日','一','二','三','四','五','六'];
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const w = weekdays[now.getDay()];
+  document.getElementById('todayDate').textContent = `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')} （${w}）`;
+})();
+
+// ============================================================
+// DATA
+// ============================================================
+const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+const dailyData = {
+  '1月': [0,0,0,0,0,0,0,0,0,0,0,62,24,0,0,0,0,0,84,46,46,46,46,0,0,86,86,86,86,86,30],
+  '2月': [30,85,85,85,85,85,50,30,45,45,45,45,45,0,0,0,0,0,0,0,0,0,45,45,75,45,0,30],
+  '3月': [30,61,47,47,64,48,30,30,48,27,43,42,2,74,30,54,38,39,51,39,30,30,54,54,55,81,110,30,30,76,38],
+  '4月': [54,54,36,30,30,36,54,54,80,87,30,30,62,62,62,62,50,74,30,40,49,49,91,92,30,30,42,41,41,51],
+  '5月': [113,75,75,59,66,87,84,57,44,0,97,97,90,62,55,0,0,51,57,57,57,51,0,0,20,26,106,148,142,0,0],
+  '6月': [82,44,50,68,44,0,0,59,68,41,41,17,44,0,16,56,36,55,15,0,0,64,53,53,90,69,0,0,69,69],
+  '7月': [31,31,31,4,4,69,36,56,43,54,0,0,65,94,32,51,22,44,0,64,64,57,37,57,0,0,37,46,46,41,32],
+  '8月': [0,0,53,58,58,53,53,0,0,53,42,42,42,33,0,0,33,33,33,33,61,44,0,71,42,42,42,33,0,0,55],
+  '9月': [46,46,46,35,0,0,51,51,51,51,51,44,0,51,60,60,60,51,0,0,51,51,35,35,0,0,32,32,45,45],
+  '10月': [45,36,44,0,51,51,51,51,0,0,0,50,59,59,59,50,0,0,50,44,44,44,35,0,0,0,35,35,35,35,0],
+  '11月': [0,65,35,65,35,65,0,0,35,65,35,65,35,0,0,35,55,55,55,35,0,0,35,35,35,35,35,0,0,35],
+  '12月': [35,35,35,0,0,0,0,0,0,0,0,0,0,38,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+};
+
+const trainings = {
+  '1月': [
+    { name: '115年度貓空纜車垂直救援編組及訓練計畫', dates: '1/12、1/19', daily: 38 },
+    { name: '電動車事故與火災救援安全講習', dates: '1/12、13', daily: 24 },
+    { name: '115年1月份新進人員職前訓練', dates: '1/19～3/9', daily: 46 },
+    { name: '火災搶救初級班 40人', dates: '1/26～2/6', daily: 40 },
+    { name: '115年度NAP重型搜救隊複測加強訓練', dates: '1/31', daily: 30 },
+  ],
+  '2月': [
+    { name: '115年1月份新進人員職前訓練（續）', dates: '2/2～3/9', daily: 45 },
+    { name: '火災搶救初級班 40人（續）', dates: '2/2～2/6', daily: 40 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '2/7', daily: 20 },
+    { name: '115年度NAP重型搜救隊複測加強訓練', dates: '2/1、7、8、25、28', daily: 30 },
+  ],
+  '3月': [
+    { name: '115年1月份新進人員職前訓練（續）', dates: '3/2～3/9', daily: 45 },
+    { name: '115年度NAP重型搜救隊複測加強訓練', dates: '3/1、7、8、14、15、19、21、22、27、28、29', daily: 30 },
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '3/3～5/5', daily: 2 },
+    { name: '災害搶救實務研習班（上半年）', dates: '3/2、5、11、12、16、23-25', daily: 16 },
+    { name: '消防署115年毒性及關注化學物質災害應變人員訓練', dates: '3/5-6、3/9～11、3/18～20', daily: 1 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '3/14', daily: 44 },
+    { name: '消防署NAP重型搜救隊能力分級認證複測增加EXCON訓練', dates: '3/10～3/12', daily: 24 },
+    { name: '115年度貓空纜車垂直救援編組及訓練計畫', dates: '3/30', daily: 38 },
+    { name: '戰術緊急傷患救護訓練（TECC）', dates: '3/26～27', daily: 42 },
+    { name: '第37期救助訓練', dates: '3/16～5/22', daily: 36 },
+    { name: '15年T-CERT教官培訓課程', dates: '3/25～26', daily: 2 },
+  ],
+  '4月': [
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '4/1～5/5', daily: 2 },
+    { name: '115年度NAP重型搜救隊複測加強訓練', dates: '4/4、5、11、12、17、18、19、24、25、26', daily: 30 },
+    { name: '第37期救助訓練', dates: '4/1～5/22', daily: 36 },
+    { name: '災害搶救實務研習班（上半年）', dates: '4/1～2、4/7～8', daily: 16 },
+    { name: '戰術緊急傷患救護訓練（TECC）', dates: '4/9～10、4/23～24', daily: 42 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '4/18', daily: 44 },
+    { name: 'IRB船艇訓練', dates: '4/13～4/16', daily: 24 },
+    { name: '115年度普通大客車駕駛訓練（第一梯）', dates: '4/16～6/3', daily: 7 },
+    { name: '115年度化學災害搶救訓練教官班複訓', dates: '4/21～4/30', daily: 2 },
+    { name: '搜救隊動員演練複訓暨NAP複測預演（場勘）', dates: '4/30', daily: 10 },
+  ],
+  '5月': [
+    { name: '搜救隊115年度動員演練複訓暨NAP複測預演', dates: '5/1～5/3', daily: 75 },
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '5/1～5/5', daily: 2 },
+    { name: '第37期救助訓練', dates: '5/1～5/22', daily: 36 },
+    { name: '中級救護技術員繼續教育訓練基礎班', dates: '5/4～8/31', daily: 15 },
+    { name: '消防署115年緊急救護教官班訓練', dates: '5/4～5/8、5/25～5/29', daily: 5 },
+    { name: '婚姻關係親職教養懷孕育兒講座', dates: '5/6', daily: 30 },
+    { name: 'ISO45001：2018內部稽核員訓練', dates: '5/7', daily: 20 },
+    { name: '115年度中央級種子教官培訓第1梯次', dates: '5/4～15', daily: 1 },
+    { name: '115年極端天然及人為災害跨單位聯合演習', dates: '5/11～15', daily: 3 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '5/9', daily: 44 },
+    { name: '戰術緊急傷患救護訓練（TECC）', dates: '5/11～12、5/28～29', daily: 42 },
+    { name: '115年度性別主流化課程', dates: '5/13', daily: 28 },
+    { name: 'NAP複測', dates: '5/27～29', daily: 80 },
+  ],
+  '6月': [
+    { name: '中級救護技術員繼續教育訓練基礎班', dates: '6月（週一~五）', daily: 15 },
+    { name: '115年度普通大客車駕駛訓練', dates: '6/4～7/22', daily: 9 },
+    { name: '115年度專責消防安全檢查實務講習（初訓）', dates: '5/11～6/5', daily: 16 },
+    { name: '115年度貓空纜車垂直救援訓練', dates: '6/1', daily: 38 },
+    { name: '消防署115年緊急救護教官班訓練', dates: '6/1～5、6/22～24', daily: 5 },
+    { name: '臺北榮總延長傷患照護（PCC）訓練', dates: '6/1～6/5', daily: 7 },
+    { name: 'ISO45001：2018內部稽核員訓練', dates: '6/4', daily: 24 },
+    { name: '戰術緊急傷患救護訓練（TECC）', dates: '6/8～9、6/25～26、6/29～30', daily: 42 },
+    { name: '道路安全駕駛教育講習', dates: '6/10～11', daily: 15 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '6/13', daily: 44 },
+    { name: '山域輕量化個人及團體技術訓練', dates: '6/16、18、22', daily: 20 },
+    { name: '3D火場初期指揮官訓練', dates: '6/16～18', daily: 20 },
+    { name: '公安潛水訓練', dates: '6/22～7/10', daily: 11 },
+    { name: '車輛器材保養操作及行車安全研習班', dates: '6/22～25', daily: 12 },
+  ],
+  '7月': [
+    { name: '中級救護技術員繼續教育訓練基礎班', dates: '7月（週一~五）', daily: 15 },
+    { name: '救援潛水訓練', dates: '6/22～7/10', daily: 20 },
+    { name: '115年度普通大客車駕駛訓練', dates: '7/7～7/22', daily: 9 },
+    { name: '日本東京2026年度綜合防災訓練暨技術交流', dates: '7/1～7/6', daily: 4 },
+    { name: '消防署115年度化學災害搶救進階班訓練', dates: '7/6～7/15', daily: 1 },
+    { name: '山域無人機專業進階訓練', dates: '7/8、10、14、16、22、24', daily: 20 },
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '7/9～9/3', daily: 2 },
+    { name: '消防署115年緊急救護教官班訓練', dates: '7/9～7/29', daily: 5 },
+    { name: '戰術緊急傷患救護訓練（TECC）', dates: '7/13～14、7/20～21', daily: 42 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '7/18', daily: 44 },
+    { name: '潛水複訓', dates: '7/22～7/31', daily: 15 },
+    { name: '115年度貓空纜車垂直救援訓練', dates: '7/6', daily: 38 },
+  ],
+  '8月': [
+    { name: '中級救護技術員繼續教育訓練基礎班', dates: '8月（週一~五）', daily: 15 },
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '8月（週一~五）', daily: 2 },
+    { name: '115年度普通大客車駕駛訓練（第三梯）', dates: '7/23～9/9', daily: 9 },
+    { name: '115年度專責消防安全檢查實務講習（初訓）', dates: '8/3～8/28', daily: 16 },
+    { name: '防災宣導人員教育訓練', dates: '8/3～8/10', daily: 20 },
+    { name: '消防署第19期緊急救護教官班期末成果報告', dates: '8/4～8/5', daily: 5 },
+    { name: '115年度性別主流化課程', dates: '8/21', daily: 28 },
+    { name: '115年度貓空纜車垂直救援訓練', dates: '8/24、8/31', daily: 38 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '8/22', daily: 44 },
+  ],
+  '9月': [
+    { name: '代訓消防署114年消防特考班中級救護技術員訓練', dates: '9/1～9/3', daily: 2 },
+    { name: '115年度普通大客車駕駛訓練', dates: '9/10～10/28', daily: 9 },
+    { name: '中級救護技術員繼續教育訓練班', dates: '9/1～12/3', daily: 35 },
+    { name: '災害搶救實務研習班（下半年）', dates: '9/7～22', daily: 16 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '9/12', daily: 44 },
+    { name: '到院前創傷救命術（PHTLS）', dates: '9/27～28', daily: 32 },
+    { name: '消防署115年度化學災害搶救進階班訓練', dates: '9/29～10/8', daily: 1 },
+  ],
+  '10月': [
+    { name: '中級救護技術員繼續教育訓練班', dates: '10月（週一~五）', daily: 35 },
+    { name: '115年度普通大客車駕駛訓練（第四梯）', dates: '9/10～10/28', daily: 9 },
+    { name: '消防署115年度化學災害搶救進階班訓練', dates: '10/1～10/8', daily: 1 },
+    { name: '搜救隊115年度動員演練複訓案', dates: '10/3', daily: 44 },
+    { name: '115年10月份新進人員職前訓練', dates: '10/5～10/19', daily: 15 },
+  ],
+  '11月': [
+    { name: '中級救護技術員繼續教育訓練班', dates: '11月（週一~五）', daily: 35 },
+    { name: '化災搶救基礎班', dates: '11/2、4、6、10、12', daily: 30 },
+    { name: '火災搶救指揮官精進訓練', dates: '11/17～11/19', daily: 20 },
+  ],
+  '12月': [
+    { name: '115年度貓空纜車垂直救援訓練', dates: '12/14', daily: 38 },
+    { name: '中級救護技術員繼續教育訓練班（42梯）', dates: '12/1～12/3', daily: 35 },
+  ],
+};
+
+// ============================================================
+// COMPUTED
+// ============================================================
+const monthlyTotals = {};
+const peakDaysCounts = {};
+months.forEach(m => {
+  const data = dailyData[m];
+  monthlyTotals[m] = data.reduce((a, b) => a + b, 0);
+  peakDaysCounts[m] = data.filter(v => v > 60).length;
+});
+
+// ============================================================
+// CHART: Monthly Totals
+// ============================================================
+const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
+new Chart(ctxMonthly, {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [{
+      label: '調用人天',
+      data: months.map(m => monthlyTotals[m]),
+      backgroundColor: months.map(m => monthlyTotals[m] > 1400 ? '#c0392b' : monthlyTotals[m] > 900 ? '#e57368' : '#f5a89e'),
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.parsed.y.toLocaleString()} 人天`
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: {
+        grid: { color: '#f0f4f8' },
+        ticks: { font: { size: 11 }, callback: v => v.toLocaleString() }
+      }
+    }
+  }
+});
+
+// ============================================================
+// CHART: Peak Days
+// ============================================================
+const ctxPeak = document.getElementById('peakChart').getContext('2d');
+new Chart(ctxPeak, {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [{
+      label: '超過60人天數',
+      data: months.map(m => peakDaysCounts[m]),
+      backgroundColor: months.map(m => {
+        const v = peakDaysCounts[m];
+        return v >= 10 ? '#822727' : v >= 7 ? '#c0392b' : v >= 4 ? '#e57368' : '#f5a89e';
+      }),
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.parsed.y} 天`
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: {
+        grid: { color: '#f0f4f8' },
+        ticks: { font: { size: 11 }, stepSize: 1 }
+      }
+    }
+  }
+});
+
+// ============================================================
+// HEATMAP
+// ============================================================
+function getCellClass(val) {
+  if (val === 0) return 'zero';
+  if (val <= 45) return 'low';
+  if (val <= 60) return 'mid';
+  if (val <= 90) return 'high';
+  return 'peak';
+}
+
+const table = document.getElementById('heatmapTable');
+// Header row
+let headerRow = '<tr><th style="width:48px;"></th>';
+for (let d = 1; d <= 31; d++) {
+  headerRow += `<th>${d}</th>`;
+}
+headerRow += '</tr>';
+table.innerHTML = headerRow;
+
+const tooltip = document.getElementById('tooltip');
+
+const todayNow = new Date();
+const todayMonthLabel = (todayNow.getMonth() + 1) + '月';
+const todayDay = todayNow.getDate();
+
+months.forEach(m => {
+  const data = dailyData[m];
+  let row = `<tr><td class="month-label">${m}</td>`;
+  for (let d = 0; d < 31; d++) {
+    if (d < data.length) {
+      const val = data[d];
+      const cls = getCellClass(val);
+      const label = val > 0 ? val : '';
+      const isToday = (m === todayMonthLabel && d + 1 === todayDay);
+      row += `<td class="heatmap-cell ${cls}${isToday ? ' today' : ''}" data-month="${m}" data-day="${d+1}" data-val="${val}">${label}</td>`;
+    } else {
+      row += `<td class="heatmap-cell empty"></td>`;
+    }
+  }
+  row += '</tr>';
+  table.innerHTML += row;
+});
+
+// Tooltip events
+document.querySelectorAll('.heatmap-cell[data-val]').forEach(cell => {
+  cell.addEventListener('mouseenter', e => {
+    const m = cell.dataset.month;
+    const d = cell.dataset.day;
+    const v = cell.dataset.val;
+    tooltip.style.display = 'block';
+    tooltip.innerHTML = `<strong>${m} ${d}日</strong><br>外勤調用：<strong>${v} 人</strong>${parseInt(v)>60 ? '<br>⚠️ 超過60人' : ''}`;
+  });
+  cell.addEventListener('mousemove', e => {
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 30) + 'px';
+  });
+  cell.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+  });
+  cell.addEventListener('click', () => {
+    selectMonth(cell.dataset.month);
+  });
+});
+
+// ============================================================
+// MONTH TABS + DETAIL
+// ============================================================
+const tabsContainer = document.getElementById('monthTabs');
+const detailContainer = document.getElementById('monthDetail');
+
+let selectedMonth = '5月';
+
+function renderTabs() {
+  tabsContainer.innerHTML = months.map(m =>
+    `<div class="month-tab ${m === selectedMonth ? 'active' : ''}" onclick="selectMonth('${m}')">${m}</div>`
+  ).join('');
+}
+
+function selectMonth(m) {
+  selectedMonth = m;
+  renderTabs();
+  renderDetail();
+}
+
+// ============================================================
+// DATE RANGE PARSER — checks if today falls in a training's date range
+// ============================================================
+function parseSingleDate(str, fallbackMonth) {
+  str = str.trim();
+  const md = str.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (md) return { m: parseInt(md[1]), d: parseInt(md[2]) };
+  const dOnly = str.match(/^(\d{1,2})$/);
+  if (dOnly) return { m: fallbackMonth, d: parseInt(dOnly[1]) };
+  return null;
+}
+
+function isActiveToday(datesStr, tabMonthNum) {
+  const now = new Date();
+  const tm = now.getMonth() + 1;
+  const td = now.getDate();
+
+  // Handle "X月（週一~五）" — entire month active
+  const fullMonthMatch = datesStr.match(/^(\d{1,2})月/);
+  if (fullMonthMatch) return parseInt(fullMonthMatch[1]) === tm;
+
+  // Split on "、" for multiple segments
+  const parts = datesStr.split('、');
+  for (let part of parts) {
+    part = part.trim().replace(/\s/g, '');
+    if (!part) continue;
+
+    const hasTilde = part.includes('～') || part.includes('~');
+    if (hasTilde) {
+      const sep = part.includes('～') ? '～' : '~';
+      const idx = part.indexOf(sep);
+      const startStr = part.slice(0, idx);
+      const endStr   = part.slice(idx + sep.length);
+      const start = parseSingleDate(startStr, tabMonthNum);
+      if (!start) continue;
+      const end = parseSingleDate(endStr, start.m);  // end with no month → inherit start month
+      if (!end) continue;
+      const sv = start.m * 100 + start.d;
+      const ev = end.m   * 100 + end.d;
+      const tv = tm      * 100 + td;
+      if (tv >= sv && tv <= ev) return true;
+    } else {
+      const date = parseSingleDate(part, tabMonthNum);
+      if (date && date.m === tm && date.d === td) return true;
+    }
+  }
+  return false;
+}
+
+function badgeClass(v) {
+  if (v >= 60) return 'badge-red';
+  if (v >= 30) return 'badge-orange';
+  if (v >= 15) return 'badge-yellow';
+  return 'badge-green';
+}
+
+function renderDetail() {
+  const m = selectedMonth;
+  const data = dailyData[m];
+  const total = monthlyTotals[m];
+  const peaks = peakDaysCounts[m];
+  const maxDay = data.indexOf(Math.max(...data)) + 1;
+  const maxVal = Math.max(...data);
+  const activeDays = data.filter(v => v > 0).length;
+
+  // Peak days list
+  const peakDaysList = data.map((v,i) => ({day: i+1, val: v})).filter(x => x.val > 60);
+
+  let html = `
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="mini-stat-val">${total.toLocaleString()}</div><div class="mini-stat-lbl">月調用人天</div></div>
+      <div class="mini-stat"><div class="mini-stat-val">${peaks}</div><div class="mini-stat-lbl">超60人天數</div></div>
+      <div class="mini-stat"><div class="mini-stat-val">${maxVal}</div><div class="mini-stat-lbl">${maxDay}日最高人數</div></div>
+      <div class="mini-stat"><div class="mini-stat-val">${activeDays}</div><div class="mini-stat-lbl">有訓練天數</div></div>
+    </div>`;
+
+  if (peakDaysList.length > 0) {
+    html += `<div style="margin-bottom:12px;"><span style="font-size:11px;font-weight:700;color:#718096;margin-right:8px;">超過60人日期：</span>`;
+    html += peakDaysList.map(p =>
+      `<span class="peak-day-pill" style="background:#822727;color:white;">${m.replace('月','')}/${p.day}（${p.val}人）</span>`
+    ).join(' ');
+    html += `</div>`;
+  }
+
+  // Training table
+  const tabMonthNum = parseInt(m.replace('月', ''));
+  const list = trainings[m] || [];
+  if (list.length > 0) {
+    html += `<table class="training-table">
+      <thead><tr>
+        <th style="width:50%;">訓練名稱</th>
+        <th>日期</th>
+        <th>每日人數</th>
+      </tr></thead><tbody>`;
+    list.forEach(t => {
+      const active = isActiveToday(t.dates, tabMonthNum);
+      const todayTag = active ? `<span class="active-today-label">▶ 今日進行中</span>` : '';
+      html += `<tr class="${active ? 'active-today' : ''}">
+        <td>${t.name}${todayTag}</td>
+        <td style="color:#718096;font-size:11px;">${t.dates}</td>
+        <td><span class="badge ${badgeClass(t.daily)}">${t.daily} 人</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  } else {
+    html += `<div style="color:#a0aec0;text-align:center;padding:20px;">本月無訓練資料</div>`;
+  }
+
+  detailContainer.innerHTML = html;
+}
+
+renderTabs();
+renderDetail();
+</script>
+</body>
+</html>
