@@ -188,6 +188,18 @@
   .training-table tr.active-today td:first-child {
     border-left: 3px solid #39ff14;
   }
+  .today-date-mark {
+    margin-top: 3px;
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(57,255,20,0.18);
+    border: 1px solid #39ff14;
+    color: #1a6b00;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
   .active-today-label {
     display: inline-block;
     margin-left: 6px;
@@ -682,7 +694,9 @@ document.querySelectorAll('.heatmap-cell[data-val]').forEach(cell => {
 const tabsContainer = document.getElementById('monthTabs');
 const detailContainer = document.getElementById('monthDetail');
 
-let selectedMonth = '5月';
+// 預設顯示「今天所在的月份」，而非固定月份
+let selectedMonth = (new Date().getMonth() + 1) + '月';
+if (!months.includes(selectedMonth)) selectedMonth = months[0];
 
 function renderTabs() {
   tabsContainer.innerHTML = months.map(m =>
@@ -790,12 +804,16 @@ function renderDetail() {
         <th>日期</th>
         <th>每日人數</th>
       </tr></thead><tbody>`;
+    const _now = new Date();
+    const _wk = ['日','一','二','三','四','五','六'][_now.getDay()];
+    const _todayStr = `${_now.getMonth() + 1}/${_now.getDate()}（${_wk}）`;
     list.forEach(t => {
       const active = isActiveToday(t.dates, tabMonthNum);
       const todayTag = active ? `<span class="active-today-label">▶ 今日進行中</span>` : '';
+      const todayDate = active ? `<div class="today-date-mark">📍 今日 ${_todayStr}</div>` : '';
       html += `<tr class="${active ? 'active-today' : ''}">
         <td>${t.name}${todayTag}</td>
-        <td style="color:#718096;font-size:11px;">${t.dates}</td>
+        <td style="color:#718096;font-size:11px;">${t.dates}${todayDate}</td>
         <td><span class="badge ${badgeClass(t.daily)}">${t.daily} 人</span></td>
       </tr>`;
     });
