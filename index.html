@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>臺北市政府消防局 115年訓練流路儀表板</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%23d94436'/%3E%3Cstop%20offset='1'%20stop-color='%23912318'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='url(%23g)'/%3E%3Ctext%20x='32'%20y='48'%20font-size='46'%20font-weight='700'%20font-family='sans-serif'%20fill='%23ffffff'%20text-anchor='middle'%3E%E6%B5%81%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20fill='%23c0392b'/%3E%3Ctext%20x='32'%20y='48'%20font-size='46'%20font-weight='700'%20font-family='sans-serif'%20fill='%23ffffff'%20text-anchor='middle'%3E%E6%B5%81%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#c0392b">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <style>
   :root { color-scheme: light; }
@@ -926,6 +929,7 @@ function renderAll() {
   renderTabs();
   renderDetail();
   document.getElementById('yearTitle').textContent = selectedYear;
+  document.title = `臺北市政府消防局 ${selectedYear}年訓練流路儀表板`;
 }
 
 function renderTabs() {
