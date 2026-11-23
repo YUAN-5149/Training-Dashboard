@@ -324,7 +324,29 @@
   .back-fab:active { transform: scale(0.97); }
   .back-fab svg { width: 18px; height: 18px; }
   @media print { .back-fab { display: none; } .header { padding-top: 20px; } }
+
+  /* 手機版響應式 */
+  .charts-row > *, .kpi-grid > * { min-width: 0; }
+  .chart-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .header { padding-top: calc(60px + env(safe-area-inset-top)); }
+  .back-fab { top: calc(12px + env(safe-area-inset-top)); }
+  @media (max-width: 699px) {
+    .header { flex-wrap: wrap; padding-left: 14px; padding-right: 14px; gap: 10px; }
+    .header-text h1 { font-size: 15px; line-height: 1.35; }
+    .header-text p { font-size: 11px; }
+    .header-right { width: 100%; justify-content: space-between; }
+    .container { padding: 12px 10px; }
+    .heatmap-table { min-width: 560px; }
+  }
 </style>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="流路儀表板">
 </head>
 <body>
 <a class="back-fab" href="https://tfd-train.github.io/Training-Management-Platform/" title="返回訓練管理整合平台">
@@ -1099,6 +1121,13 @@ function renderDetail() {
 }
 
 renderAll();
+</script>
+
+<script>
+  // PWA：註冊 Service Worker（可加到主畫面、離線開啟）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
 </script>
 </body>
 </html>
